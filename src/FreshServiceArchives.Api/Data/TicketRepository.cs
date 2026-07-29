@@ -185,11 +185,11 @@ public sealed class TicketRepository : ITicketRepository
             new { TicketId = ticketId }, cancellationToken: ct))).AsList();
 
         var attachments = (await conn.QueryAsync<AttachmentItem>(new CommandDefinition(
-            @"SELECT AttachmentID, FreshserviceAttachmentID, TicketID, ConversationID,
+            @"SELECT AttachmentArchiveID AS AttachmentID, FreshserviceAttachmentID, TicketID, ConversationID,
                      FileName, ContentType, FileSize, Downloaded, LocalFilePath
               FROM dbo.FS_Ticket_Attachments_Archive
               WHERE TicketID = @TicketId
-              ORDER BY ConversationID, AttachmentID",
+              ORDER BY ConversationID, AttachmentArchiveID",
             new { TicketId = ticketId }, cancellationToken: ct))).AsList();
 
         // Trust the disk, not just the Downloaded flag: only offer a download if the file is really there.
@@ -221,7 +221,7 @@ public sealed class TicketRepository : ITicketRepository
             new CommandDefinition(
                 @"SELECT LocalFilePath, FileName, ContentType
                   FROM dbo.FS_Ticket_Attachments_Archive
-                  WHERE AttachmentID = @Id",
+                  WHERE AttachmentArchiveID = @Id",
                 new { Id = attachmentId }, cancellationToken: ct));
 
         if (string.IsNullOrWhiteSpace(row.LocalFilePath)) return null;
