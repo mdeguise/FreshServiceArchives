@@ -26,7 +26,17 @@ body,
 }
 
 body {
-  background: var(--bg);
+  /* Full-page hero background (save the image to public/hero.png). The scrim keeps
+     the white content cards readable; a solid fallback colour shows if the file is
+     missing. Fixed attachment so it stays put while results scroll. */
+  background-color: #0b1a2b;
+  background-image:
+    linear-gradient(180deg, rgba(9, 20, 34, 0.32), rgba(9, 20, 34, 0.55)),
+    url('/hero.png');
+  background-repeat: no-repeat;
+  background-position: center top;
+  background-size: cover;
+  background-attachment: fixed;
   font-size: 14px;
   line-height: 1.5;
 }
@@ -41,7 +51,8 @@ a:hover {
 
 /* ---- Layout ---- */
 .app-header {
-  background: #0f2942;
+  background: rgba(11, 26, 43, 0.72);
+  backdrop-filter: blur(6px);
   color: #fff;
   padding: 0 24px;
   height: 56px;
