@@ -1,4 +1,6 @@
 :root {
+  /* Opt out of browser auto dark-mode so our light palette renders as designed. */
+  color-scheme: light;
   --bg: #f4f6f8;
   --surface: #ffffff;
   --border: #e2e6ea;
