@@ -160,16 +160,21 @@ function AttachmentList({ items }: { items: TicketDetail['attachments'] }) {
     <ul className="attach-list">
       {items.map((a) => (
         <li key={a.attachmentID}>
-          📎{' '}
           {a.canDownload ? (
-            <a href={api.attachmentUrl(a.attachmentID)} target="_blank" rel="noopener noreferrer">
-              {a.fileName || 'attachment'}
+            <a
+              className="attach-btn"
+              href={api.attachmentUrl(a.attachmentID)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              ⬇ {a.fileName || 'attachment'}
             </a>
           ) : (
-            <span title="File was not archived to disk">{a.fileName || 'attachment'}</span>
+            <span className="attach-missing" title="File was not archived to disk">
+              📎 {a.fileName || 'attachment'} (not available)
+            </span>
           )}
           {a.fileSize != null && <span className="size">{formatFileSize(a.fileSize)}</span>}
-          {!a.canDownload && <span className="size">(not available)</span>}
         </li>
       ))}
     </ul>

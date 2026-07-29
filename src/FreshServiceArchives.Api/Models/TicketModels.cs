@@ -20,6 +20,7 @@ public sealed class TicketListItem
     public string? ResponderName { get; set; }
     public DateTime? CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
+    public bool HasAttachments { get; set; }
 }
 
 /// <summary>A paged result set of tickets.</summary>

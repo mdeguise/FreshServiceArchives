@@ -9,6 +9,8 @@ import type {
 
 export interface TicketSearchParams {
   search?: string
+  requester?: string
+  description?: string
   status?: number
   priority?: number
   groupId?: number

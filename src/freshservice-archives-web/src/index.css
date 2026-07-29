@@ -106,10 +106,25 @@ a:hover {
   min-width: 150px;
 }
 .field.grow {
-  flex: 1 1 260px;
+  flex: 1 1 220px;
 }
 .field.grow input {
   width: 100%;
+}
+.date-range {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.date-range input {
+  min-width: 130px;
+}
+.date-sep {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.attach-flag {
+  font-size: 13px;
 }
 .field input:focus,
 .field select:focus {
@@ -365,4 +380,29 @@ tbody tr:hover {
 .attach-list .size {
   color: var(--text-muted);
   font-size: 12px;
+}
+.attach-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid var(--primary);
+  border-radius: 6px;
+  background: #eef4ff;
+  color: var(--primary-dark);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+.attach-btn:hover {
+  background: var(--primary);
+  color: #fff;
+  text-decoration: none;
+}
+.attach-missing {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 13px;
 }

@@ -1,12 +1,15 @@
 using System.Text;
 using Dapper;
 using FreshServiceArchives.Api.Models;
+using Microsoft.Extensions.Options;
 
 namespace FreshServiceArchives.Api.Data;
 
 public sealed class TicketSearchQuery
 {
     public string? Search { get; set; }
+    public string? Requester { get; set; }
+    public string? Description { get; set; }
     public int? Status { get; set; }
     public int? Priority { get; set; }
     public long? GroupId { get; set; }
@@ -16,14 +19,17 @@ public sealed class TicketSearchQuery
     public int PageSize { get; set; } = 25;
     public string SortBy { get; set; } = "UpdatedAt";
     public bool SortDesc { get; set; } = true;
+
+    /// <summary>Groups the caller is permitted to see. Results are always constrained to these.</summary>
+    public IReadOnlyList<long> AllowedGroupIds { get; set; } = Array.Empty<long>();
 }
 
 public interface ITicketRepository
 {
     Task<PagedResult<TicketListItem>> SearchAsync(TicketSearchQuery query, CancellationToken ct);
-    Task<TicketDetail?> GetByIdAsync(long ticketId, CancellationToken ct);
-    Task<IReadOnlyList<GroupLookup>> GetGroupsAsync(CancellationToken ct);
-    Task<AttachmentFile?> GetAttachmentFileAsync(long attachmentId, CancellationToken ct);
+    Task<TicketDetail?> GetByIdAsync(long ticketId, IReadOnlyList<long> allowedGroupIds, CancellationToken ct);
+    Task<IReadOnlyList<GroupLookup>> GetGroupsAsync(IReadOnlyList<long> allowedGroupIds, CancellationToken ct);
+    Task<AttachmentFile?> GetAttachmentFileAsync(long attachmentId, IReadOnlyList<long> allowedGroupIds, CancellationToken ct);
 }
 
 /// <summary>Metadata needed to stream an archived attachment from disk.</summary>
@@ -32,6 +38,7 @@ public sealed record AttachmentFile(string LocalFilePath, string FileName, strin
 public sealed class TicketRepository : ITicketRepository
 {
     private readonly ISqlConnectionFactory _factory;
+    private readonly ArchiveOptions _archive;
 
     // Whitelist of sortable columns to avoid SQL injection via the SortBy field.
     private static readonly Dictionary<string, string> SortColumns = new(StringComparer.OrdinalIgnoreCase)
@@ -44,29 +51,50 @@ public sealed class TicketRepository : ITicketRepository
         ["UpdatedAt"] = "t.UpdatedAt",
     };
 
-    public TicketRepository(ISqlConnectionFactory factory) => _factory = factory;
+    public TicketRepository(ISqlConnectionFactory factory, IOptions<ArchiveOptions> archive)
+    {
+        _factory = factory;
+        _archive = archive.Value;
+    }
 
     public async Task<PagedResult<TicketListItem>> SearchAsync(TicketSearchQuery query, CancellationToken ct)
     {
-        var where = new StringBuilder(" WHERE 1 = 1 ");
+        var where = new StringBuilder(" WHERE t.GroupID IN @AllowedGroups ");
         var p = new DynamicParameters();
+        p.Add("@AllowedGroups", query.AllowedGroupIds);
 
+        // General search: ticket number or subject.
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
             var term = query.Search.Trim();
-            // Match ticket id exactly when the search is purely numeric, otherwise text search.
             if (long.TryParse(term, out var idTerm))
             {
-                where.Append(" AND (t.TicketID = @IdTerm OR t.Subject LIKE @Like OR t.DescriptionText LIKE @Like) ");
+                where.Append(" AND (t.TicketID = @IdTerm OR t.Subject LIKE @Like) ");
                 p.Add("@IdTerm", idTerm);
             }
             else
             {
-                where.Append(@" AND (t.Subject LIKE @Like
-                    OR t.DescriptionText LIKE @Like
-                    OR rq.FirstName LIKE @Like OR rq.LastName LIKE @Like OR rq.PrimaryEmail LIKE @Like) ");
+                where.Append(" AND t.Subject LIKE @Like ");
             }
             p.Add("@Like", "%" + term + "%");
+        }
+
+        // Dedicated requester search: name or email.
+        if (!string.IsNullOrWhiteSpace(query.Requester))
+        {
+            where.Append(@" AND (rq.FirstName LIKE @ReqLike OR rq.LastName LIKE @ReqLike
+                OR rq.PrimaryEmail LIKE @ReqLike
+                OR LTRIM(RTRIM(ISNULL(rq.FirstName,'') + ' ' + ISNULL(rq.LastName,''))) LIKE @ReqLike) ");
+            p.Add("@ReqLike", "%" + query.Requester.Trim() + "%");
+        }
+
+        // Dedicated keyword-in-description search via full-text CONTAINS (fast, whole-word
+        // with prefix). LIKE '%word%' full-scans the large body column and times out.
+        var ftsTerm = BuildContainsTerm(query.Description);
+        if (ftsTerm is not null)
+        {
+            where.Append(" AND CONTAINS(t.DescriptionText, @DescFts) ");
+            p.Add("@DescFts", ftsTerm);
         }
 
         if (query.Status is not null) { where.Append(" AND t.Status = @Status "); p.Add("@Status", query.Status); }
@@ -98,7 +126,9 @@ public sealed class TicketRepository : ITicketRepository
                 rq.PrimaryEmail AS RequesterEmail,
                 t.ResponderID,
                 LTRIM(RTRIM(ISNULL(rs.FirstName,'') + ' ' + ISNULL(rs.LastName,''))) AS ResponderName,
-                t.CreatedAt, t.UpdatedAt
+                t.CreatedAt, t.UpdatedAt,
+                CAST(CASE WHEN EXISTS (SELECT 1 FROM dbo.FS_Ticket_Attachments_Archive a WHERE a.TicketID = t.TicketID)
+                         THEN 1 ELSE 0 END AS bit) AS HasAttachments
             {fromJoins}
             {where}
             ORDER BY {sortCol} {sortDir}
@@ -130,8 +160,10 @@ public sealed class TicketRepository : ITicketRepository
         };
     }
 
-    public async Task<TicketDetail?> GetByIdAsync(long ticketId, CancellationToken ct)
+    public async Task<TicketDetail?> GetByIdAsync(long ticketId, IReadOnlyList<long> allowedGroupIds, CancellationToken ct)
     {
+        // The group filter is part of the WHERE, so a ticket in a group the user
+        // may not see returns null (404) — no leaking across the RH boundary.
         const string ticketSql = @"
             SELECT t.TicketID, t.Subject, t.DescriptionHTML, t.DescriptionText,
                    t.Status, t.Priority, t.Source, t.Category, t.SubCategory, t.ItemCategory,
@@ -139,11 +171,11 @@ public sealed class TicketRepository : ITicketRepository
                    t.CustomFieldsJson,
                    t.RequesterID, t.ResponderID, t.GroupID
             FROM dbo.FS_Tickets_Archive t
-            WHERE t.TicketID = @TicketId;";
+            WHERE t.TicketID = @TicketId AND t.GroupID IN @AllowedGroups;";
 
         using var conn = _factory.Create();
         var detail = await conn.QuerySingleOrDefaultAsync<TicketDetail>(
-            new CommandDefinition(ticketSql, new { TicketId = ticketId }, cancellationToken: ct));
+            new CommandDefinition(ticketSql, new { TicketId = ticketId, AllowedGroups = allowedGroupIds }, cancellationToken: ct));
         if (detail is null) return null;
 
         // FK ids came back on the ticket row (JsonIgnored on the model); use them to hydrate relations.
@@ -192,39 +224,97 @@ public sealed class TicketRepository : ITicketRepository
               ORDER BY ConversationID, AttachmentArchiveID",
             new { TicketId = ticketId }, cancellationToken: ct))).AsList();
 
-        // Trust the disk, not just the Downloaded flag: only offer a download if the file is really there.
+        // Only offer a download if the file actually resolves on disk (via configured root).
         foreach (var a in attachments)
         {
-            a.CanDownload = !string.IsNullOrWhiteSpace(a.LocalFilePath) && File.Exists(a.LocalFilePath);
+            a.CanDownload = ResolveAttachmentPath(a.LocalFilePath) is not null;
         }
         detail.Attachments = attachments;
 
         return detail;
     }
 
-    public async Task<IReadOnlyList<GroupLookup>> GetGroupsAsync(CancellationToken ct)
+    public async Task<IReadOnlyList<GroupLookup>> GetGroupsAsync(IReadOnlyList<long> allowedGroupIds, CancellationToken ct)
     {
         using var conn = _factory.Create();
         var groups = await conn.QueryAsync<GroupLookup>(new CommandDefinition(
             @"SELECT g.GroupID, g.Name
               FROM dbo.FS_Groups_Archive g
-              WHERE EXISTS (SELECT 1 FROM dbo.FS_Tickets_Archive t WHERE t.GroupID = g.GroupID)
+              WHERE g.GroupID IN @AllowedGroups
               ORDER BY g.Name",
-            cancellationToken: ct));
+            new { AllowedGroups = allowedGroupIds }, cancellationToken: ct));
         return groups.AsList();
     }
 
-    public async Task<AttachmentFile?> GetAttachmentFileAsync(long attachmentId, CancellationToken ct)
+    public async Task<AttachmentFile?> GetAttachmentFileAsync(long attachmentId, IReadOnlyList<long> allowedGroupIds, CancellationToken ct)
     {
         using var conn = _factory.Create();
+        // Verify the attachment's ticket is in a group the user may see before returning any path.
         var row = await conn.QuerySingleOrDefaultAsync<(string? LocalFilePath, string? FileName, string? ContentType)>(
             new CommandDefinition(
-                @"SELECT LocalFilePath, FileName, ContentType
-                  FROM dbo.FS_Ticket_Attachments_Archive
-                  WHERE AttachmentArchiveID = @Id",
-                new { Id = attachmentId }, cancellationToken: ct));
+                @"SELECT a.LocalFilePath, a.FileName, a.ContentType
+                  FROM dbo.FS_Ticket_Attachments_Archive a
+                  INNER JOIN dbo.FS_Tickets_Archive t ON t.TicketID = a.TicketID
+                  WHERE a.AttachmentArchiveID = @Id AND t.GroupID IN @AllowedGroups",
+                new { Id = attachmentId, AllowedGroups = allowedGroupIds }, cancellationToken: ct));
 
-        if (string.IsNullOrWhiteSpace(row.LocalFilePath)) return null;
-        return new AttachmentFile(row.LocalFilePath!, row.FileName ?? "attachment", row.ContentType);
+        var resolved = ResolveAttachmentPath(row.LocalFilePath);
+        if (resolved is null) return null;
+        return new AttachmentFile(resolved, row.FileName ?? "attachment", row.ContentType);
+    }
+
+    /// <summary>
+    /// Builds a safe CONTAINS search condition from free user input. Each word becomes a
+    /// prefix term ("word*") and words are AND-ed, so "reset password" matches descriptions
+    /// containing both. Returns null when there is nothing searchable. The value is passed
+    /// as a parameter (never string-concatenated into SQL), and quotes/noise are stripped so
+    /// it can't break the full-text predicate.
+    /// </summary>
+    private static string? BuildContainsTerm(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return null;
+
+        var words = input
+            .Split(new[] { ' ', '\t', '\r', '\n', ',', ';', '"', '\'', '(', ')', '*', '&', '|' },
+                StringSplitOptions.RemoveEmptyEntries)
+            .Where(w => w.Length > 0)
+            .Take(10)
+            .Select(w => "\"" + w + "*\"");
+
+        var term = string.Join(" AND ", words);
+        return string.IsNullOrWhiteSpace(term) ? null : term;
+    }
+
+    /// <summary>
+    /// Returns a readable path for a stored attachment, or null if the file cannot be found.
+    /// Tries the stored path first (already a UNC path), then rebases the portion after
+    /// "Attachements" onto the configured <see cref="ArchiveOptions.AttachmentRoot"/> — so the
+    /// same archive works whether the app runs on vm-trm-live (UNC) or vm-trm-sql1 (F:\).
+    /// </summary>
+    private string? ResolveAttachmentPath(string? storedPath)
+    {
+        if (string.IsNullOrWhiteSpace(storedPath)) return null;
+
+        try
+        {
+            if (File.Exists(storedPath)) return storedPath;
+
+            var root = _archive.AttachmentRoot;
+            if (!string.IsNullOrWhiteSpace(root))
+            {
+                const string marker = "Attachements";
+                var idx = storedPath.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+                if (idx >= 0)
+                {
+                    var relative = storedPath[(idx + marker.Length)..].TrimStart('\\', '/');
+                    var candidate = Path.Combine(root, relative);
+                    if (File.Exists(candidate)) return candidate;
+                }
+            }
+        }
+        catch (IOException) { /* share unreachable → treat as unavailable */ }
+        catch (UnauthorizedAccessException) { /* no permission → treat as unavailable */ }
+
+        return null;
     }
 }

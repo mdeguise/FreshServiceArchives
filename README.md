@@ -11,13 +11,17 @@ existing SQL Server archive database populated by the Freshservice archiver cons
 
 ## What it does
 
-- **Search & filter** tickets by free text (ticket #, subject, description, requester),
-  status, priority, group, and created-date range.
-- **Sortable, paged** results grid.
+- **Search & filter** tickets by: general text (ticket # or subject), **requester**
+  (name/email), **word in description** (full-text search), status, priority, group,
+  and a created-date range (from/to on one line).
+- **Sortable, paged** results grid; a 📎 marks tickets that have attachments.
 - **Ticket detail** view with full description, the complete conversation thread
   (public replies and private notes), requester/agent/group info, and category.
-- **Attachment download** — serves files that the archiver saved to local/UNC storage.
+- **Attachment download** — a download button appears for each archived file, served
+  from the attachment file share.
 - **Windows Authentication** — no login screen; the signed-in AD user is shown in the header.
+- **Group access control** — only an approved set of groups is selectable, and the RH/HR
+  groups are visible only to users in an editable database table (see below).
 
 ---
 
@@ -51,6 +55,8 @@ FreshServiceArchives/
 ├─ FreshServiceArchives.slnx
 ├─ build-and-publish.ps1          # one-shot build (SPA + API) → .\publish
 ├─ db/
+│  ├─ portal_access.sql           # creates + seeds the RH access-control table
+│  ├─ fulltext.sql                # full-text index for description search
 │  └─ recommended_indexes.sql     # optional perf indexes for the search queries
 └─ src/
    ├─ FreshServiceArchives.Api/   # ASP.NET Core API + serves the SPA
@@ -81,6 +87,41 @@ Freshservice numeric codes (status/priority/source) are mapped to text in
 `Data/FreshserviceLookups.cs`.
 
 ---
+
+## Group access control
+
+Two things govern what a user can see, both driven by config + one editable table:
+
+- **`Access:AllowedGroupIds`** (appsettings.json) — the only groups selectable/visible
+  anywhere in the portal. Tickets in any other group are never returned.
+- **`Access:RestrictedGroupIds`** (appsettings.json) — the RH/HR groups. These are hidden
+  from everyone **except** users listed in the access table.
+- **`dbo.FS_Portal_RH_Access`** (SQL table, run `db/portal_access.sql` to create + seed) —
+  **who** may see the RH groups. Edit this table (SSMS or any tool) to add/remove people;
+  changes take effect immediately, no redeploy.
+
+  ```sql
+  -- Grant a user RH visibility (UserName = Windows sign-in name, not email):
+  INSERT INTO dbo.FS_Portal_RH_Access (UserName, Email, DisplayName, AddedBy)
+  VALUES ('jdoe', 'jdoe@tremblant.ca', 'Jane Doe', 'admin');
+
+  -- Revoke:
+  DELETE FROM dbo.FS_Portal_RH_Access WHERE UserName = 'jdoe';
+  ```
+
+  The app matches the current Windows user's sign-in name (sAMAccountName, the part after
+  `DOMAIN\`) case-insensitively against `UserName`.
+
+Enforcement is applied in SQL on **every** query — search results, the group dropdown,
+ticket detail, and attachment downloads — so a non-RH user can never reach an RH ticket,
+even by guessing a ticket id or attachment id.
+
+## Full-text description search
+
+The "word in description" filter uses SQL Full-Text Search (`CONTAINS`) instead of a slow
+`LIKE '%...%'` scan. Run **`db/fulltext.sql`** once against the archive DB to create the
+catalog and index (`CHANGE_TRACKING AUTO` keeps it current as the archiver adds rows).
+Requires Full-Text Search to be installed on the SQL instance.
 
 ## Configure
 

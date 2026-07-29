@@ -20,6 +20,8 @@ export default function TicketListPage() {
 
   // Local form state, seeded from the URL so links and refreshes are stable.
   const [search, setSearch] = useState(params.get('search') ?? '')
+  const [requester, setRequester] = useState(params.get('requester') ?? '')
+  const [description, setDescription] = useState(params.get('description') ?? '')
 
   const page = Number(params.get('page') ?? '1') || 1
   const sortBy = params.get('sortBy') ?? 'UpdatedAt'
@@ -34,6 +36,8 @@ export default function TicketListPage() {
   const queryParams = useMemo(
     () => ({
       search: params.get('search') ?? undefined,
+      requester: params.get('requester') ?? undefined,
+      description: params.get('description') ?? undefined,
       status: params.get('status') ? Number(params.get('status')) : undefined,
       priority: params.get('priority') ? Number(params.get('priority')) : undefined,
       groupId: params.get('groupId') ? Number(params.get('groupId')) : undefined,
@@ -79,7 +83,11 @@ export default function TicketListPage() {
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault()
-    patch({ search: search.trim() || undefined })
+    patch({
+      search: search.trim() || undefined,
+      requester: requester.trim() || undefined,
+      description: description.trim() || undefined,
+    })
   }
 
   function onSort(column: string) {
@@ -97,6 +105,8 @@ export default function TicketListPage() {
 
   function clearFilters() {
     setSearch('')
+    setRequester('')
+    setDescription('')
     setParams(new URLSearchParams())
   }
 
@@ -110,9 +120,31 @@ export default function TicketListPage() {
           <input
             id="search"
             type="text"
-            placeholder="Ticket #, subject, description, requester…"
+            placeholder="Ticket # or subject…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+
+        <div className="field grow">
+          <label htmlFor="requester">Requester</label>
+          <input
+            id="requester"
+            type="text"
+            placeholder="Requester name or email…"
+            value={requester}
+            onChange={(e) => setRequester(e.target.value)}
+          />
+        </div>
+
+        <div className="field grow">
+          <label htmlFor="description">Word in description</label>
+          <input
+            id="description"
+            type="text"
+            placeholder="Keyword in ticket description…"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
           />
         </div>
 
@@ -165,23 +197,24 @@ export default function TicketListPage() {
         </div>
 
         <div className="field">
-          <label htmlFor="from">Created from</label>
-          <input
-            id="from"
-            type="date"
-            value={params.get('createdFrom') ?? ''}
-            onChange={(e) => patch({ createdFrom: e.target.value || undefined })}
-          />
-        </div>
-
-        <div className="field">
-          <label htmlFor="to">Created to</label>
-          <input
-            id="to"
-            type="date"
-            value={params.get('createdTo') ?? ''}
-            onChange={(e) => patch({ createdTo: e.target.value || undefined })}
-          />
+          <label>Created</label>
+          <div className="date-range">
+            <input
+              id="from"
+              type="date"
+              aria-label="Created from"
+              value={params.get('createdFrom') ?? ''}
+              onChange={(e) => patch({ createdFrom: e.target.value || undefined })}
+            />
+            <span className="date-sep">to</span>
+            <input
+              id="to"
+              type="date"
+              aria-label="Created to"
+              value={params.get('createdTo') ?? ''}
+              onChange={(e) => patch({ createdTo: e.target.value || undefined })}
+            />
+          </div>
         </div>
 
         <button type="submit" className="btn">
@@ -218,7 +251,15 @@ export default function TicketListPage() {
                   style={{ cursor: 'pointer' }}
                 >
                   <td className="ticket-id nowrap">{t.ticketID}</td>
-                  <td className="subject-cell">{t.subject || <span className="muted">(no subject)</span>}</td>
+                  <td className="subject-cell">
+                    {t.subject || <span className="muted">(no subject)</span>}
+                    {t.hasAttachments && (
+                      <span className="attach-flag" title="Has attachments">
+                        {' '}
+                        📎
+                      </span>
+                    )}
+                  </td>
                   <td>
                     <span className={`badge ${statusClass(t.status)}`}>{t.statusText ?? '—'}</span>
                   </td>

@@ -9,12 +9,20 @@ namespace FreshServiceArchives.Api.Controllers;
 public sealed class LookupsController : ControllerBase
 {
     private readonly ITicketRepository _repo;
+    private readonly IUserAccessService _access;
 
-    public LookupsController(ITicketRepository repo) => _repo = repo;
+    public LookupsController(ITicketRepository repo, IUserAccessService access)
+    {
+        _repo = repo;
+        _access = access;
+    }
 
     [HttpGet("groups")]
-    public async Task<ActionResult<IReadOnlyList<GroupLookup>>> Groups(CancellationToken ct) =>
-        Ok(await _repo.GetGroupsAsync(ct));
+    public async Task<ActionResult<IReadOnlyList<GroupLookup>>> Groups(CancellationToken ct)
+    {
+        var allowed = await _access.GetAllowedGroupIdsAsync(User, ct);
+        return Ok(await _repo.GetGroupsAsync(allowed, ct));
+    }
 
     [HttpGet("statuses")]
     public ActionResult<IEnumerable<CodeLookup>> Statuses() =>

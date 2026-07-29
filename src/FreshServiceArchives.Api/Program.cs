@@ -22,8 +22,11 @@ builder.Services.AddAuthorization(options =>
 builder.Services.Configure<IISServerOptions>(o => o.AutomaticAuthentication = true);
 
 // --- Application services -----------------------------------------------------
+builder.Services.Configure<AccessOptions>(builder.Configuration.GetSection(AccessOptions.SectionName));
+builder.Services.Configure<ArchiveOptions>(builder.Configuration.GetSection(ArchiveOptions.SectionName));
 builder.Services.AddSingleton<ISqlConnectionFactory, SqlConnectionFactory>();
 builder.Services.AddScoped<ITicketRepository, TicketRepository>();
+builder.Services.AddScoped<IUserAccessService, UserAccessService>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

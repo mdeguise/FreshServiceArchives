@@ -14,6 +14,7 @@ export interface TicketListItem {
   responderName: string | null
   createdAt: string | null
   updatedAt: string | null
+  hasAttachments: boolean
 }
 
 export interface PagedResult<T> {
