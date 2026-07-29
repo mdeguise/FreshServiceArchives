@@ -1,0 +1,29 @@
+# --- .NET ---
+bin/
+obj/
+*.user
+*.suo
+.vs/
+publish/
+*.publishsettings
+
+# Build output copied into the API by the frontend build
+src/FreshServiceArchives.Api/wwwroot/
+
+# --- Node / Vite ---
+node_modules/
+dist/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --- Environment / secrets ---
+appsettings.*.local.json
+*.env
+.env
+.env.*
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
