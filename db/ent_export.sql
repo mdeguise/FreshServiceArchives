@@ -43,6 +43,17 @@ SET LocalFilePath = REPLACE(LocalFilePath, '\Attachements\', '\ENT_Attachements\
 WHERE LocalFilePath IS NOT NULL;
 GO
 
+-- SELECT INTO copies columns/nullability but NOT default constraints. The archiver's
+-- INSERT relies on defaults for ImportedAt/LastSyncedAt/Downloaded, so re-add them to
+-- match the source tables (otherwise inserts fail: "Cannot insert NULL into LastSyncedAt").
+ALTER TABLE dbo.FS_ENT_Tickets_Archive              ADD CONSTRAINT DF_FS_ENT_Tickets_ImportedAt   DEFAULT SYSUTCDATETIME() FOR ImportedAt;
+ALTER TABLE dbo.FS_ENT_Tickets_Archive              ADD CONSTRAINT DF_FS_ENT_Tickets_LastSyncedAt DEFAULT SYSUTCDATETIME() FOR LastSyncedAt;
+ALTER TABLE dbo.FS_ENT_Ticket_Conversations_Archive ADD CONSTRAINT DF_FS_ENT_Conv_ImportedAt      DEFAULT SYSUTCDATETIME() FOR ImportedAt;
+ALTER TABLE dbo.FS_ENT_Ticket_Conversations_Archive ADD CONSTRAINT DF_FS_ENT_Conv_LastSyncedAt    DEFAULT SYSUTCDATETIME() FOR LastSyncedAt;
+ALTER TABLE dbo.FS_ENT_Ticket_Attachments_Archive   ADD CONSTRAINT DF_FS_ENT_Att_ImportedAt       DEFAULT SYSUTCDATETIME() FOR ImportedAt;
+ALTER TABLE dbo.FS_ENT_Ticket_Attachments_Archive   ADD CONSTRAINT DF_FS_ENT_Att_Downloaded       DEFAULT ((0))            FOR Downloaded;
+GO
+
 -- Summary -------------------------------------------------------------------
 SELECT 'Tickets='       + CONVERT(varchar, COUNT(*)) FROM dbo.FS_ENT_Tickets_Archive;
 SELECT 'Conversations=' + CONVERT(varchar, COUNT(*)) FROM dbo.FS_ENT_Ticket_Conversations_Archive;
