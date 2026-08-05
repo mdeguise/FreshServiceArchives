@@ -1,10 +1,13 @@
 import type {
+  AccessLists,
+  AccessTier,
   CodeLookup,
   CurrentUser,
   GroupLookup,
   PagedResult,
   TicketDetail,
   TicketListItem,
+  UserAccessInfo,
 } from './types'
 
 export interface TicketSearchParams {
@@ -29,6 +32,19 @@ async function getJson<T>(url: string): Promise<T> {
     throw new Error(`Request failed (${res.status}): ${body || res.statusText}`)
   }
   return (await res.json()) as T
+}
+
+async function send(url: string, method: 'POST' | 'DELETE', bodyObj?: unknown): Promise<void> {
+  const res = await fetch(url, {
+    method,
+    credentials: 'include',
+    headers: bodyObj ? { 'Content-Type': 'application/json' } : undefined,
+    body: bodyObj ? JSON.stringify(bodyObj) : undefined,
+  })
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(`Request failed (${res.status}): ${body || res.statusText}`)
+  }
 }
 
 function buildQuery(params: Record<string, unknown>): string {
@@ -62,5 +78,20 @@ export const api = {
   },
   getMe(): Promise<CurrentUser> {
     return getJson('/api/me')
+  },
+  getAccessInfo(): Promise<UserAccessInfo> {
+    return getJson('/api/access/me')
+  },
+  getAccessLists(): Promise<AccessLists> {
+    return getJson('/api/access/lists')
+  },
+  addAccessUser(
+    tier: AccessTier,
+    user: { userName: string; email?: string; displayName?: string },
+  ): Promise<void> {
+    return send(`/api/access/${tier}`, 'POST', user)
+  },
+  removeAccessUser(tier: AccessTier, userName: string): Promise<void> {
+    return send(`/api/access/${tier}/${encodeURIComponent(userName)}`, 'DELETE')
   },
 }

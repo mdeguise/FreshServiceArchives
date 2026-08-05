@@ -17,7 +17,7 @@ public sealed class TicketSearchQuery
     public DateTime? CreatedTo { get; set; }
     public int Page { get; set; } = 1;
     public int PageSize { get; set; } = 25;
-    public string SortBy { get; set; } = "UpdatedAt";
+    public string SortBy { get; set; } = "CreatedAt";
     public bool SortDesc { get; set; } = true;
 
     /// <summary>Groups the caller is permitted to see. Results are always constrained to these.</summary>
@@ -103,7 +103,7 @@ public sealed class TicketRepository : ITicketRepository
         if (query.CreatedFrom is not null) { where.Append(" AND t.CreatedAt >= @CreatedFrom "); p.Add("@CreatedFrom", query.CreatedFrom); }
         if (query.CreatedTo is not null) { where.Append(" AND t.CreatedAt < @CreatedTo "); p.Add("@CreatedTo", query.CreatedTo); }
 
-        var sortCol = SortColumns.TryGetValue(query.SortBy, out var c) ? c : "t.UpdatedAt";
+        var sortCol = SortColumns.TryGetValue(query.SortBy, out var c) ? c : "t.CreatedAt";
         var sortDir = query.SortDesc ? "DESC" : "ASC";
 
         var page = Math.Max(1, query.Page);

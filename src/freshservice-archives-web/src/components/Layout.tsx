@@ -4,12 +4,17 @@ import { api } from '../api'
 
 export default function Layout() {
   const [user, setUser] = useState<string>('')
+  const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
     api
       .getMe()
       .then((me) => setUser(me.displayName || me.userName))
       .catch(() => setUser(''))
+    api
+      .getAccessInfo()
+      .then((a) => setIsAdmin(a.isAdmin))
+      .catch(() => setIsAdmin(false))
   }, [])
 
   return (
@@ -18,7 +23,14 @@ export default function Layout() {
         <Link to="/" style={{ color: '#fff' }}>
           <h1>Freshservice Ticket Archive</h1>
         </Link>
-        {user && <span className="user">Signed in as {user}</span>}
+        <div className="header-right">
+          {isAdmin && (
+            <Link to="/admin" className="header-link">
+              Access Management
+            </Link>
+          )}
+          {user && <span className="user">Signed in as {user}</span>}
+        </div>
       </header>
       <main className="app-main">
         <Outlet />

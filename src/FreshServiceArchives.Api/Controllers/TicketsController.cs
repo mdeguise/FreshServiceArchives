@@ -33,7 +33,7 @@ public sealed class TicketsController : ControllerBase
         [FromQuery] DateTime? createdTo,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 25,
-        [FromQuery] string sortBy = "UpdatedAt",
+        [FromQuery] string sortBy = "CreatedAt",
         [FromQuery] bool sortDesc = true,
         CancellationToken ct = default)
     {

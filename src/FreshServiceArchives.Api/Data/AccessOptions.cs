@@ -5,11 +5,14 @@ public sealed class AccessOptions
 {
     public const string SectionName = "Access";
 
-    /// <summary>The only groups selectable/visible anywhere in the portal.</summary>
+    /// <summary>Every group the portal knows about — granted to Full Access users.</summary>
     public long[] AllowedGroupIds { get; set; } = Array.Empty<long>();
 
-    /// <summary>RH groups visible only to users listed in dbo.FS_Portal_RH_Access.</summary>
-    public long[] RestrictedGroupIds { get; set; } = Array.Empty<long>();
+    /// <summary>Groups granted to users in dbo.FS_Portal_RH_Access.</summary>
+    public long[] RhGroupIds { get; set; } = Array.Empty<long>();
+
+    /// <summary>Groups granted to users in dbo.FS_Portal_IT_Access.</summary>
+    public long[] ItGroupIds { get; set; } = Array.Empty<long>();
 }
 
 /// <summary>Bound from the "Archive" section of appsettings.json.</summary>

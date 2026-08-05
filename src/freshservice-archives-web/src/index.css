@@ -71,6 +71,24 @@ a:hover {
   font-size: 13px;
   color: #b8c7d9;
 }
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.header-link {
+  color: #cfe0f2;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 6px;
+}
+.header-link:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  text-decoration: none;
+}
 .app-main {
   max-width: 1180px;
   margin: 0 auto;

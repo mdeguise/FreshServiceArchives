@@ -24,7 +24,7 @@ export default function TicketListPage() {
   const [description, setDescription] = useState(params.get('description') ?? '')
 
   const page = Number(params.get('page') ?? '1') || 1
-  const sortBy = params.get('sortBy') ?? 'UpdatedAt'
+  const sortBy = params.get('sortBy') ?? 'CreatedAt'
   const sortDesc = params.get('sortDesc') !== 'false'
 
   useEffect(() => {
@@ -238,8 +238,8 @@ export default function TicketListPage() {
                 <th onClick={() => onSort('Priority')}>Priority{sortIndicator('Priority')}</th>
                 <th className="no-sort">Group</th>
                 <th className="no-sort">Requester</th>
-                <th onClick={() => onSort('UpdatedAt')} className="nowrap">
-                  Updated{sortIndicator('UpdatedAt')}
+                <th onClick={() => onSort('CreatedAt')} className="nowrap">
+                  Created{sortIndicator('CreatedAt')}
                 </th>
               </tr>
             </thead>
@@ -275,7 +275,7 @@ export default function TicketListPage() {
                       </div>
                     )}
                   </td>
-                  <td className="nowrap muted">{formatDate(t.updatedAt)}</td>
+                  <td className="nowrap muted">{formatDate(t.createdAt)}</td>
                 </tr>
               ))}
             </tbody>

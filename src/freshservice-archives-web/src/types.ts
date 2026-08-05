@@ -112,3 +112,28 @@ export interface CurrentUser {
   displayName: string
   isAuthenticated: boolean
 }
+
+export interface UserAccessInfo {
+  userName: string
+  isRh: boolean
+  isIt: boolean
+  isFull: boolean
+  isAdmin: boolean
+  hasAnyAccess: boolean
+}
+
+export interface AccessUser {
+  userName: string
+  email: string | null
+  displayName: string | null
+  addedAtUtc: string | null
+  addedBy: string | null
+}
+
+export type AccessTier = 'rh' | 'it' | 'full'
+
+export interface AccessLists {
+  rh: AccessUser[]
+  it: AccessUser[]
+  full: AccessUser[]
+}

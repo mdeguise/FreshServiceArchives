@@ -5,6 +5,7 @@ import './index.css'
 import Layout from './components/Layout'
 import TicketListPage from './pages/TicketListPage'
 import TicketDetailPage from './pages/TicketDetailPage'
+import AdminPage from './pages/AdminPage'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -13,6 +14,7 @@ createRoot(document.getElementById('root')!).render(
         <Route element={<Layout />}>
           <Route path="/" element={<TicketListPage />} />
           <Route path="/tickets/:id" element={<TicketDetailPage />} />
+          <Route path="/admin" element={<AdminPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
