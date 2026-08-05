@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
-import type { AccessLists, AccessTier, AccessUser } from '../types'
+import type { AccessLists, AccessTier, AccessUser, DirectoryUser } from '../types'
 
 const TIERS: { key: AccessTier; title: string; blurb: string }[] = [
   { key: 'full', title: 'Full Access', blurb: 'Sees every group, and can manage access (admin).' },
@@ -98,6 +98,47 @@ function TierCard({
   const [displayName, setDisplayName] = useState('')
   const [busy, setBusy] = useState(false)
 
+  // Active Directory people-picker.
+  const [q, setQ] = useState('')
+  const [results, setResults] = useState<DirectoryUser[]>([])
+  const [searching, setSearching] = useState(false)
+  const [showResults, setShowResults] = useState(false)
+
+  useEffect(() => {
+    const term = q.trim()
+    if (term.length < 2) {
+      setResults([])
+      return
+    }
+    let cancelled = false
+    setSearching(true)
+    const t = setTimeout(() => {
+      api
+        .searchDirectory(term)
+        .then((r) => {
+          if (!cancelled) {
+            setResults(r)
+            setShowResults(true)
+          }
+        })
+        .catch(() => !cancelled && setResults([]))
+        .finally(() => !cancelled && setSearching(false))
+    }, 300)
+    return () => {
+      cancelled = true
+      clearTimeout(t)
+    }
+  }, [q])
+
+  function pick(u: DirectoryUser) {
+    setUserName(u.userName)
+    setEmail(u.email ?? '')
+    setDisplayName(u.displayName ?? '')
+    setQ('')
+    setResults([])
+    setShowResults(false)
+  }
+
   async function add(e: React.FormEvent) {
     e.preventDefault()
     if (!userName.trim()) return
@@ -175,6 +216,31 @@ function TierCard({
           </table>
         </div>
         <form className="filters" onSubmit={add} style={{ marginBottom: 0 }}>
+          <div className="field grow ad-search">
+            <label>Find in directory</label>
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              onFocus={() => results.length > 0 && setShowResults(true)}
+              onBlur={() => setTimeout(() => setShowResults(false), 150)}
+              placeholder="Search AD by name…"
+            />
+            {showResults && (
+              <ul className="ad-results">
+                {searching && <li className="ad-empty">Searching…</li>}
+                {!searching && results.length === 0 && <li className="ad-empty">No matches</li>}
+                {results.map((u) => (
+                  <li key={u.userName} onMouseDown={() => pick(u)}>
+                    <span className="ad-name">{u.displayName || u.userName}</span>
+                    <span className="ad-meta">
+                      {u.userName}
+                      {u.email ? ` · ${u.email}` : ''}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
           <div className="field">
             <label>Sign-in name *</label>
             <input value={userName} onChange={(e) => setUserName(e.target.value)} placeholder="jdoe" />

@@ -130,6 +130,12 @@ export interface AccessUser {
   addedBy: string | null
 }
 
+export interface DirectoryUser {
+  userName: string
+  email: string | null
+  displayName: string | null
+}
+
 export type AccessTier = 'rh' | 'it' | 'full'
 
 export interface AccessLists {

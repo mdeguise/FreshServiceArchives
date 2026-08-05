@@ -27,6 +27,7 @@ builder.Services.Configure<ArchiveOptions>(builder.Configuration.GetSection(Arch
 builder.Services.AddSingleton<ISqlConnectionFactory, SqlConnectionFactory>();
 builder.Services.AddScoped<ITicketRepository, TicketRepository>();
 builder.Services.AddScoped<IUserAccessService, UserAccessService>();
+builder.Services.AddSingleton<IDirectorySearchService, DirectorySearchService>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

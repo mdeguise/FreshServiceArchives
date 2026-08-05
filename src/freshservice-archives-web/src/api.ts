@@ -3,6 +3,7 @@ import type {
   AccessTier,
   CodeLookup,
   CurrentUser,
+  DirectoryUser,
   GroupLookup,
   PagedResult,
   TicketDetail,
@@ -93,5 +94,8 @@ export const api = {
   },
   removeAccessUser(tier: AccessTier, userName: string): Promise<void> {
     return send(`/api/access/${tier}/${encodeURIComponent(userName)}`, 'DELETE')
+  },
+  searchDirectory(q: string): Promise<DirectoryUser[]> {
+    return getJson(`/api/access/directory/search?q=${encodeURIComponent(q)}`)
   },
 }

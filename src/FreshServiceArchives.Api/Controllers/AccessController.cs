@@ -26,6 +26,7 @@ public sealed class AccessController : ControllerBase
 {
     private readonly ISqlConnectionFactory _factory;
     private readonly IUserAccessService _access;
+    private readonly IDirectorySearchService _directory;
 
     // Whitelist: tier key -> access table. Prevents any table name coming from the URL.
     private static readonly Dictionary<string, string> Tables = new(StringComparer.OrdinalIgnoreCase)
@@ -35,10 +36,19 @@ public sealed class AccessController : ControllerBase
         ["full"] = "dbo.FS_Portal_Full_Access",
     };
 
-    public AccessController(ISqlConnectionFactory factory, IUserAccessService access)
+    public AccessController(ISqlConnectionFactory factory, IUserAccessService access, IDirectorySearchService directory)
     {
         _factory = factory;
         _access = access;
+        _directory = directory;
+    }
+
+    /// <summary>Search Active Directory for users to add. Admin only.</summary>
+    [HttpGet("directory/search")]
+    public async Task<ActionResult<IReadOnlyList<DirectoryUser>>> DirectorySearch([FromQuery] string q, CancellationToken ct)
+    {
+        if (!await IsAdminAsync(ct)) return Forbid();
+        return Ok(await _directory.SearchAsync(q ?? "", 10, ct));
     }
 
     /// <summary>Current user's access tiers (used by the UI to show/hide the admin section).</summary>
