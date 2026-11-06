@@ -6,6 +6,7 @@ import Layout from './components/Layout'
 import TicketListPage from './pages/TicketListPage'
 import TicketDetailPage from './pages/TicketDetailPage'
 import AdminPage from './pages/AdminPage'
+import { monterSignaler } from './SignalerBouton'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -20,3 +21,5 @@ createRoot(document.getElementById('root')!).render(
     </BrowserRouter>
   </StrictMode>,
 )
+
+monterSignaler('Archives Freshservice')
